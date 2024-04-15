@@ -1,0 +1,2 @@
+# https://github.com/OCA/server-ux/pull/859
+odoo-addon-base_rule_visibility_restriction @ git+https://github.com/OCA/server-ux.git@refs/pull/859/head#subdirectory=setup/base_rule_visibility_restriction
