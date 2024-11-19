@@ -1,23 +1,51 @@
 # Copyright 2023 Nextev
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
-from odoo import fields, models
+from odoo import api, fields, models
+from odoo.tools.float_utils import float_compare
 
 
 class AccountInvoiceLineAgent(models.Model):
     _inherit = "account.invoice.line.agent"
 
-    partial_settled = fields.Monetary(string="Partial Commission Amount Settled")
+    partial_settled = fields.Monetary(
+        string="Partial Commission Amount Settled",
+        compute="_compute_partial_settled",
+        store=True,
+    )
+    is_fully_settled = fields.Boolean(compute="_compute_is_fully_settled", store=True)
+    invoice_line_agent_partial_ids = fields.One2many(
+        "account.invoice.line.agent.partial", "invoice_line_agent_id"
+    )
 
-    def _compute_settled(self):
-        filtered_lines = self.filtered(
-            lambda x: x.commission_id.payment_amount_type != "paid"
-        )
-        for line in self - filtered_lines:
-            if not line.settlement_line_ids:
-                line.settled = False
+    @api.depends(
+        "invoice_line_agent_partial_ids.amount",
+        "invoice_line_agent_partial_ids.agent_line.settlement_id.state",
+    )
+    def _compute_partial_settled(self):
+        for rec in self:
+            rec.partial_settled = sum(
+                ailap.amount
+                for ailap in rec.invoice_line_agent_partial_ids
+                if ailap.mapped("agent_line.settlement_id")[:1].state != "cancel"
+            )
 
-        return super(AccountInvoiceLineAgent, filtered_lines)._compute_settled()
+    @api.depends(
+        "commission_id.payment_amount_type", "amount", "settled", "partial_settled"
+    )
+    def _compute_is_fully_settled(self):
+        for rec in self:
+            if rec.commission_id.payment_amount_type != "paid":
+                rec.is_fully_settled = rec.settled
+            else:
+                rec.is_fully_settled = rec.settled and (
+                    float_compare(
+                        rec.partial_settled,
+                        rec.amount,
+                        precision_rounding=rec.currency_id.rounding,
+                    )
+                    == 0
+                )
 
     def _partial_commissions(self, date_payment_to):
         """
@@ -30,7 +58,6 @@ class AccountInvoiceLineAgent(models.Model):
         """
         partial_lines_to_settle = []
         partial_payment_remaining = {}
-        lines_to_update = {}
         for line in self:
             line_total_amount = line.amount
             reconciled_partials, _ = line.invoice_id._get_reconciled_invoices_partials()
@@ -52,12 +79,10 @@ class AccountInvoiceLineAgent(models.Model):
                     partial_payment_remaining[partial.id] = {"remaining_amount": amount}
                 if line.object_id.price_total <= payment_amount:
                     partial_lines_to_settle.append(
-                        self._partial_agent_line_values(line, line_total_amount)
+                        self._partial_agent_line_values(
+                            line, line_total_amount, partial
+                        )
                     )
-                    lines_to_update[line.id] = {
-                        "partial_settled": line_total_amount,
-                        "settled": True,
-                    }
                     partial_payment_remaining[partial.id] = {
                         "remaining_amount": amount - line.object_id.price_total
                     }
@@ -68,25 +93,17 @@ class AccountInvoiceLineAgent(models.Model):
                     line.invoice_id.commission_total * paid_in_proportion
                 )
                 partial_lines_to_settle.append(
-                    self._partial_agent_line_values(line, partial_commission)
+                    self._partial_agent_line_values(line, partial_commission, partial)
                 )
-                if line.id in lines_to_update:
-                    lines_to_update[line.id]["partial_settled"] += partial_commission
-                else:
-                    lines_to_update[line.id] = {"partial_settled": partial_commission}
-
-                if lines_to_update[line.id]["partial_settled"] >= line_total_amount:
-                    lines_to_update[line.id].update({"settled": True})
-                    break
-                partial.partial_commission_settled = True
         partial_agent_lines = self.env["account.invoice.line.agent.partial"].create(
             partial_lines_to_settle
         )
-        return partial_agent_lines, lines_to_update
+        return partial_agent_lines
 
-    def _partial_agent_line_values(self, line, amount):
+    def _partial_agent_line_values(self, line, amount, partial):
         return {
             "invoice_line_agent_id": line.id,
             "currency_id": line.currency_id.id,
             "amount": amount,
+            "account_partial_reconcile_id": partial.id,
         }

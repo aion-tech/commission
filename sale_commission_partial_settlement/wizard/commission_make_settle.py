@@ -23,7 +23,6 @@ class CommissionMakeSettle(models.TransientModel):
         settlement_obj = self.env["commission.settlement"]
         settlement_line_obj = self.env["commission.settlement.line"]
         settlement_ids = []
-
         if self.agent_ids:
             agents = self.agent_ids
         else:
@@ -32,14 +31,7 @@ class CommissionMakeSettle(models.TransientModel):
         for agent in agents:
             date_to_agent = self._get_period_start(agent, date_to)
             main_agent_line = self.get_partial_agent_lines(agent, date_to_agent)
-            (
-                partial_agent_lines,
-                agent_lines_to_update,
-            ) = main_agent_line._partial_commissions(self.date_to)
-            for line_id in agent_lines_to_update:
-                self.env["account.invoice.line.agent"].browse(line_id).update(
-                    agent_lines_to_update[line_id]
-                )
+            partial_agent_lines = main_agent_line._partial_commissions(date_to)
             for company in partial_agent_lines.mapped(
                 "invoice_line_agent_id.company_id"
             ):
@@ -88,8 +80,10 @@ class CommissionMakeSettle(models.TransientModel):
             [
                 ("invoice_date", "<", date_to_agent),
                 ("agent_id", "=", agent.id),
-                ("settled", "=", False),
                 ("commission_id.payment_amount_type", "=", "paid"),
+                "|",
+                ("settled", "=", False),
+                ("is_fully_settled", "=", False),
             ],
             order="invoice_date",
         )
