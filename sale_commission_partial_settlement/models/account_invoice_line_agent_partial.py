@@ -13,6 +13,7 @@ class AccountInvoiceLineAgentPartial(models.Model):
         column2="settlement_id",
         copy=False,
     )
+    account_partial_reconcile_id = fields.Many2one("account.partial.reconcile")
     amount = fields.Monetary(
         string="Commission Amount",
     )
