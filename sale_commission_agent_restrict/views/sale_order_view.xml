@@ -6,14 +6,21 @@
 <odoo>
 
     <record model="ir.ui.view" id="view_sale_order_line_tree_mod">
-        <field name="name">Agent lines for user displaying only own commissions</field>
-        <field name="model">sale.order.line.agent</field>
-        <field name="priority">100</field>
+        <field
+            name="name"
+        >Sale Order line for user displaying only own commissions</field>
+        <field name="model">sale.order.line</field>
         <field name="mode">primary</field>
-        <field name="inherit_id" ref="sale_commission.view_sale_order_line_tree" />
+        <field name="inherit_id" ref="commission.view_commission_mixin_agent_only" />
         <field name="arch" type="xml">
-            <tree position="replace">
-                <tree create="false" edit="false" delete="false" editable="bottom">
+            <field name="agent_ids" position="inside">
+                <tree
+                    no_open="True"
+                    create="false"
+                    edit="false"
+                    delete="false"
+                    editable="bottom"
+                >
                     <field
                         name="agent_id"
                         context="{'default_agent': True, 'default_customer': False, 'default_supplier': True}"
@@ -22,7 +29,7 @@
                     <field name="commission_id" readonly="1" />
                     <field name="amount" readonly="1" />
                 </tree>
-            </tree>
+            </field>
         </field>
     </record>
 
