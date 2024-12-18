@@ -7,8 +7,8 @@ from dateutil.relativedelta import relativedelta
 from odoo import _, models
 
 
-class SaleCommissionMakeSettle(models.TransientModel):
-    _inherit = "sale.commission.make.settle"
+class CommissionMakeSettle(models.TransientModel):
+    _inherit = "commission.make.settle"
 
     def action_settle(self):
         partial_res = self.action_settle_partial()
@@ -20,10 +20,9 @@ class SaleCommissionMakeSettle(models.TransientModel):
 
     def action_settle_partial(self):
         self.ensure_one()
-        settlement_obj = self.env["sale.commission.settlement"]
-        settlement_line_obj = self.env["sale.commission.settlement.line"]
+        settlement_obj = self.env["commission.settlement"]
+        settlement_line_obj = self.env["commission.settlement.line"]
         settlement_ids = []
-
         if self.agent_ids:
             agents = self.agent_ids
         else:
@@ -32,14 +31,7 @@ class SaleCommissionMakeSettle(models.TransientModel):
         for agent in agents:
             date_to_agent = self._get_period_start(agent, date_to)
             main_agent_line = self.get_partial_agent_lines(agent, date_to_agent)
-            (
-                partial_agent_lines,
-                agent_lines_to_update,
-            ) = main_agent_line._partial_commissions(self.date_payment_to)
-            for line_id in agent_lines_to_update:
-                self.env["account.invoice.line.agent"].browse(line_id).update(
-                    agent_lines_to_update[line_id]
-                )
+            partial_agent_lines = main_agent_line._partial_commissions(date_to)
             for company in partial_agent_lines.mapped(
                 "invoice_line_agent_id.company_id"
             ):
@@ -57,7 +49,7 @@ class SaleCommissionMakeSettle(models.TransientModel):
                             sett_from,
                         ) - relativedelta(days=1)
                         settlement = self._get_settlement(
-                            agent, company, sett_from, sett_to
+                            agent, company, line.currency_id, sett_from, sett_to
                         )
                         if not settlement:
                             settlement = settlement_obj.create(
@@ -67,11 +59,7 @@ class SaleCommissionMakeSettle(models.TransientModel):
                             )
                         settlement_ids.append(settlement.id)
                     settlement_line_obj.create(
-                        {
-                            "settlement_id": settlement.id,
-                            "agent_line_partial_ids": [(6, 0, [line.id])],
-                            "agent_line": [(6, 0, [line.invoice_line_agent_id.id])],
-                        }
+                        self._prepare_partial_settlement_line_vals(settlement, line)
                     )
         if len(settlement_ids):
             return {
@@ -79,7 +67,7 @@ class SaleCommissionMakeSettle(models.TransientModel):
                 "type": "ir.actions.act_window",
                 "view_type": "form",
                 "view_mode": "tree,form",
-                "res_model": "sale.commission.settlement",
+                "res_model": "commission.settlement",
                 "domain": [["id", "in", settlement_ids]],
             }
 
@@ -92,9 +80,20 @@ class SaleCommissionMakeSettle(models.TransientModel):
             [
                 ("invoice_date", "<", date_to_agent),
                 ("agent_id", "=", agent.id),
-                ("settled", "=", False),
                 ("commission_id.payment_amount_type", "=", "paid"),
+                "|",
+                ("settled", "=", False),
+                ("is_fully_settled", "=", False),
             ],
             order="invoice_date",
         )
         return main_agent_line
+
+    def _prepare_partial_settlement_line_vals(self, settlement, line):
+        return {
+            "settlement_id": settlement.id,
+            "agent_line_partial_ids": [(6, 0, [line.id])],
+            "invoice_agent_line_id": line.invoice_line_agent_id.id,
+            "commission_id": line.invoice_line_agent_id.commission_id.id,
+            "date": line.invoice_line_agent_id.invoice_date,
+        }
