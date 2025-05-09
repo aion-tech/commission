@@ -22,6 +22,7 @@ msgid "Agent Access"
 msgstr "Acceso Agente"
 
 #. module: sale_commission_agent_restrict
+#. odoo-python
 #: code:addons/sale_commission_agent_restrict/models/res_partner.py:0
 #, python-format
 msgid "Agents are not allowed to change Contacts' payment terms"
@@ -30,6 +31,7 @@ msgstr ""
 "Contactos"
 
 #. module: sale_commission_agent_restrict
+#. odoo-python
 #: code:addons/sale_commission_agent_restrict/models/res_partner.py:0
 #, python-format
 msgid "Agents are not allowed to change the agents assigned to a Contact"
@@ -82,6 +84,12 @@ msgid "Sales Order"
 msgstr "Orden de Venta"
 
 #. module: sale_commission_agent_restrict
+#: model:ir.model,name:sale_commission_agent_restrict.model_sale_order_line
+msgid "Sales Order Line"
+msgstr ""
+
+#. module: sale_commission_agent_restrict
+#. odoo-python
 #: code:addons/sale_commission_agent_restrict/models/res_users.py:0
 #, python-format
 msgid ""
@@ -96,3 +104,17 @@ msgstr ""
 #: model:ir.model,name:sale_commission_agent_restrict.model_res_users
 msgid "Users"
 msgstr "Usuarios"
+msgid "User"
+msgstr ""
+
+#~ msgid "Display Name"
+#~ msgstr "Mostrar Nombre"
+
+#~ msgid "ID"
+#~ msgstr "ID"
+
+#~ msgid "Last Modified on"
+#~ msgstr "Última Modificación el"
+
+#~ msgid "Users"
+#~ msgstr "Usuarios"
