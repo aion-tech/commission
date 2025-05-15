@@ -15,6 +15,13 @@ class TestSaleCommission(TestAccountCommission):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        cls.pricelist = cls.env["product.pricelist"].create(
+            {
+                "name": "Pricelist for tests",
+                "currency_id": cls.company.currency_id.id,
+            }
+        )
+        cls.partner.property_product_pricelist = cls.pricelist
         cls.sale_order_model = cls.env["sale.order"]
         cls.advance_inv_model = cls.env["sale.advance.payment.inv"]
         cls.product.write({"invoice_policy": "order"})
@@ -129,6 +136,10 @@ class TestSaleCommission(TestAccountCommission):
         sale_order.recompute_lines_agents()
         agent = sale_order.order_line.agent_ids
         self._check_propagation(agent, self.commission_net_invoice, self.agent_monthly)
+        # Check recomputation of amount
+        agent.amount = 5
+        sale_order.recompute_lines_agents_amount()
+        self.assertEqual(agent.amount, 1)
 
     def test_sale_commission_invoice_line_agent(self):
         sale_order = self._create_sale_order(

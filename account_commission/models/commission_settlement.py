@@ -94,7 +94,7 @@ class CommissionSettlement(models.Model):
                     (
                         "code",
                         "=",
-                        self.agent_id.lang or self.env.context.get("lang", "en_US"),
+                        partner.lang or self.env.context.get("lang", "en_US"),
                     )
                 ]
             )
@@ -163,7 +163,9 @@ class CommissionSettlement(models.Model):
 class SettlementLine(models.Model):
     _inherit = "commission.settlement.line"
 
-    invoice_agent_line_id = fields.Many2one(comodel_name="account.invoice.line.agent")
+    invoice_agent_line_id = fields.Many2one(
+        comodel_name="account.invoice.line.agent", index=True
+    )
     invoice_line_id = fields.Many2one(
         comodel_name="account.move.line",
         store=True,
