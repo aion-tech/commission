@@ -40,9 +40,11 @@ class CommissionMakeSettle(models.TransientModel):
                 )
                 sett_to = date.min
                 for line in agent_lines_company:
-                    if line.invoice_line_agent_id.invoice_date > sett_to:
+                    commission_settle_date = self._get_commission_settle_date(
+                        line, settlement_type="partial_settlement")
+                    if commission_settle_date > sett_to:
                         sett_from = self._get_period_start(
-                            agent, line.invoice_line_agent_id.invoice_date
+                            agent, commission_settle_date
                         )
                         sett_to = self._get_next_period_date(
                             agent,
@@ -95,5 +97,20 @@ class CommissionMakeSettle(models.TransientModel):
             "agent_line_partial_ids": [(6, 0, [line.id])],
             "invoice_agent_line_id": line.invoice_line_agent_id.id,
             "commission_id": line.invoice_line_agent_id.commission_id.id,
-            "date": line.invoice_line_agent_id.invoice_date,
+            "date": self._get_commission_settle_date(line, settlement_type="partial_settlement"),
         }
+
+    def _get_commission_settle_date(self, line, **kwargs):
+        """
+        Get the date to use for the partial commission settlement.
+        If the invoice line agent has a commission that is paid,
+        use the payment date of the credit move.
+        Otherwise, use the invoice date.
+        """
+        if kwargs.get("settlement_type") == "partial_settlement":
+            if line.invoice_line_agent_id.commission_id.invoice_state == "paid":
+                return line.account_partial_reconcile_id.credit_move_id.payment_id.date
+            else:
+                return line.invoice_line_agent_id.invoice_date
+        return super()._get_commission_settle_date(line)
+        
