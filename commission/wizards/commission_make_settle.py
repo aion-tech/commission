@@ -146,7 +146,7 @@ class CommissionMakeSettle(models.TransientModel):
                     if line._skip_settlement():
                         continue
                     commission_settle_date = self._get_commission_settle_date(line)
-
+                    
                     if commission_settle_date > sett_to:
                         sett_from = self._get_period_start(agent, commission_settle_date)
                         sett_to = self._get_next_period_date(agent, sett_from)
@@ -179,6 +179,24 @@ class CommissionMakeSettle(models.TransientModel):
                 "domain": [["id", "in", settlement_ids]],
             }
 
+    def _get_riba_commission_settle_date(self, line):
+        """
+        Get the date to use for the commission settlement when it's a riba
+        payment.
+        """
+        commission_settle_date = None
+        if line.invoice_id.is_riba_payment:
+            # fist checks if there is a date on the move line
+            # if not, it will take the riba date
+            cs_move_line_end_date = line.invoice_id.line_ids.slip_line_ids.move_line_id.end_date
+            if cs_move_line_end_date:
+                commission_settle_date = cs_move_line_end_date
+            else:
+                riba_date = line.invoice_id.line_ids.slip_line_ids.riba_line_id.slip_id.registration_date
+                if riba_date:
+                    commission_settle_date = riba_date
+        return commission_settle_date
+
     def _get_commission_settle_date(self, line):
         """
         Get the date to use for the commission settlement.
@@ -186,22 +204,25 @@ class CommissionMakeSettle(models.TransientModel):
         and the invoice is fully paid, use the payment date of the invoice.
         Otherwise, use the invoice date.
         """
+        commission_settle_date = line.invoice_date
         if line.commission_id.invoice_state and line.invoice_id.payment_state == "paid":
-
-            if line.invoice_id.payment_ids:
-                payment_date = max(
-                    [
-                        payment.date
-                        for payment in line.invoice_id.payment_ids
-                    ]
-                )
-            else:
+            commission_settle_date = self._get_riba_commission_settle_date(line)
+            if not commission_settle_date and line.invoice_id.payment_ids:
+                    payment_date = max(
+                        [
+                            payment.date
+                            for payment in line.invoice_id.payment_ids
+                        ]
+                    )
+                    if payment_date:
+                        commission_settle_date = payment_date
+            elif not commission_settle_date:
                 payment_date = max(
                     [
                         payment['date']
                         for payment in line.invoice_id.invoice_payments_widget["content"]
                     ]
                 )
-            return payment_date
-        else:
-            return line.invoice_date
+                if payment_date:
+                    commission_settle_date = payment_date
+        return commission_settle_date if commission_settle_date else line.invoice_date #default to invoice date
