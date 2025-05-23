@@ -188,7 +188,7 @@ class CommissionMakeSettle(models.TransientModel):
         if line.invoice_id.is_riba_payment:
             # fist checks if there is a date on the move line
             # if not, it will take the riba date
-            cs_move_line_end_date = line.invoice_id.line_ids.slip_line_ids.move_line_id.end_date
+            cs_move_line_end_date = line.invoice_id.line_ids.slip_line_ids.move_line_id.date_maturity
             if cs_move_line_end_date:
                 commission_settle_date = cs_move_line_end_date
             else:
