@@ -40,7 +40,7 @@ class CommissionMakeSettle(models.TransientModel):
             res.update(
                 {
                     "invoice_agent_line_id": line.id,
-                    "date": line.invoice_date,
+                    "date": self._get_commission_settle_date(line),
                     "commission_id": line.commission_id.id,
                     "settled_amount": line.amount,
                 }
